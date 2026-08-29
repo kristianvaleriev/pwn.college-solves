@@ -1,0 +1,8 @@
+ffffffff83e 89b30 t run_cmd
+ffffffff83e b69a9 T printk
+
+ffffffff904 89b30 t run_cmd
+ffffffff904 b69a9 T printk
+
+ffffffffb16 89b30 t run_cmd
+ffffffffb16 b69a9 T print

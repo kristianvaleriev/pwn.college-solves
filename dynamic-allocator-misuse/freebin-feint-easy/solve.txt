@@ -1,0 +1,10 @@
+malloc(bytes >= 2 ^ 12) => some_addr
+free(some_addr)
+read_flag => malloc returns some_addr
+puts(some_addr)
+
+
+It works because we allocate a size that doesnt fit in the tcache.
+When we free it, it goes to the top of the heap (because it is the first malloc),
+so the address of the top is served first for the next malloc.
+

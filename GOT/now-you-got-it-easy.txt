@@ -1,0 +1,12 @@
+Array label: data_405ff8 (ff8 is constant)
+Array len: 0x1e8 (488) bytes
+Elements written to it via label data_405228 (228 constant) +
+                                            ( 0x1ba (442) + idx ) << 3
+                                            => (442 + 0 ) * 8 = 3536
+
+Diff in array offsets: 0xff8 - 0x228 = 0xdd0 (3536 bytes? )
+
+
+Array has 0xff8 (4088) offfset from the GOT, so index -511  is the first GOT entry?
+Functions start at entry 4, so 3 * 8 = 24 or 0x18 from the start of GOT.
+=> -511 + 0x18 (24) =  -487

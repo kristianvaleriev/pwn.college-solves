@@ -1,0 +1,31 @@
+gef➤  p ((struct task_struct*) 0xffff88807d661b00)->mm->pgd
+$5 = (pgd_t *) 0xffff88807bc36000
+gef➤  p ((struct task_struct*) 0xffff88807d68b600)->mm->pgd
+$6 = (pgd_t *) 0xffff88807bc46000
+gef➤  p/x $6 - %5
+=> 0x2000
+
+
+gef➤  p ((struct task_struct*) 0xffff88807d664380)->mm->pgd
+$8 = (pgd_t *) 0xffff88807c75c000
+gef➤  p ((struct task_struct*) 0xffff88807d689b00)->mm->pgd
+$9 = (pgd_t *) 0xffff88807c78a000
+gef➤  p $9 - $8
+$10 = 0x5c00
+
+
+gef➤  p ((struct task_struct*) 0xffff88807d660d80)->mm->pgd
+$11 = (pgd_t *) 0xffff88807bc0c000
+gef➤  p ((struct task_struct*) 0xffff88807d688000)->mm->pgd
+$12 = (pgd_t *) 0xffff88807c7ea000
+gef➤  p $12 - $11
+$13 = 0x17bc00
+
+
+gef➤  p ((struct task_struct*) 0xffff88807d662880)->mm->pgd
+$14 = (pgd_t *) 0xffff88807c976000
+gef➤  p ((struct task_struct*) 0xffff88807d68a880)->mm->pgd
+$15 = (pgd_t *) 0xffff88807c75a000
+gef➤  p $15 - $14
+$16 = 0xfffffffffffbc800
+

@@ -1,0 +1,16 @@
+Yan85 notes
+
+1. System calls
+A) System nums:
+- 0x20 (32) => open
+- 0x10 (16) => read_memory
+    * reads from fd at prog_mem[0x100] (reg A) to prog_mem[prog_mem+0x101]
+      (idx in reg B) count reg C bytes.
+
+- 0x4       => write
+- 0x1       => sleep
+- 0x0       => exit(prog_mem[reg A])
+
+2. interpret_stm(prog_mem, reg1, reg2)
+- read second regs value
+- at prog_mem[reg1_val] write reg2's value

@@ -1,0 +1,6 @@
+Allocate the same size as the buffer of read_flag.
+Free the just allocated space.
+Free it again by overwriting the key field of the tcache_entry, 
+so the check for double free will fail.
+Now, when the buffer for the flag is allocated twice, 
+the same address of a free entry will be returned two times.

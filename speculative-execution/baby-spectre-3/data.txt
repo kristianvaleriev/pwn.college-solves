@@ -1,0 +1,38 @@
+---------------- With -O0 (Optimizations off):
+True count: 3657
+False count: 439
+
+True count: 2784
+False count: 1312
+
+True count: 3728
+False count: 368
+
+True count: 3642
+False count: 454
+
+True count: 3776
+False count: 320
+
+True count: 3556
+False count: 540
+
+---------------- Without -O0:
+True count: 3283
+False count: 813
+
+True count: 3681
+False count: 415
+
+True count: 3776
+False count: 320
+
+True count: 2806
+False count: 1290
+
+True count: 3743
+False count: 353
+
+True count: 3460
+False count: 636
+
