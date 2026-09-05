@@ -1,0 +1,124 @@
+#!/bin/python 
+
+import os
+import sys
+import time
+import argparse
+import pwn as p
+
+
+SCANF_INPUT_SIZE = 1024
+
+p.context.arch = 'amd64'
+args = None
+proc, elf, libc = (None, None, None)
+
+
+def get_server():
+    if args.noaslr:
+        proc = p.process(sys.argv[1], setuid=False, aslr=False)
+    else:
+        proc = p.process(sys.argv[1:])
+    elf  = proc.elf
+    return (proc, elf, elf.libc)
+
+
+def restart_server():
+    global proc, elf, libc 
+    proc.kill()
+    proc, elf, libc = get_server()
+
+
+def attach_gdb(gdbscript=""):
+    if not (args.gef or args.pwndbg):
+        return
+
+    gdbscript = ("gef-init\n" if args.gef else "pwndbg-init\n") + gdbscript
+    p.gdb.attach(proc, gdbscript=gdbscript)
+
+
+class thd_comm:
+    def __init__(self, host="localhost", port=1337):
+        if proc is None:
+            print("!WARNING! Proc isn't started.")
+        self.thd = p.remote(host, port)
+
+
+    def prompt_cmd(self, cmd):
+        if len(cmd) > SCANF_INPUT_SIZE:
+            print("!WARNING! Length of cmd is larger than input max size.")
+            cmd = cmd[:SCANF_INPUT_SIZE]
+        if isinstance(cmd, str):
+            cmd = cmd.encode()
+
+        self.thd.clean()
+        self.thd.sendline(cmd)
+
+
+    def send_idx(self, idx):
+        self.thd.sendline(str(idx).encode())
+
+
+    def printf(self, idx: int):
+        self.prompt_cmd("printf")
+        self.send_idx(idx)
+        self.thd.recvuntil(b"MESSAGE: ")
+        return self.thd.recvline(drop=True)
+
+
+    def malloc(self, idx: int):
+        self.prompt_cmd(b"malloc")
+        self.send_idx(idx)
+
+
+    def scanf(self, idx: int, msg):
+        self.prompt_cmd(b"scanf")
+        self.send_idx(idx)
+        self.prompt_cmd(msg)
+
+
+    def free(self, idx):
+        self.prompt_cmd(b"free")
+        self.send_idx(idx)
+
+
+    def send_flag(self):
+        self.prompt_cmd(b"send_flag")
+        if self.thd.recvuntil(b"pwn.", timeout=2) != b"":
+            return self.thd.recv(55)
+        return b""
+
+
+parser = argparse.ArgumentParser(usage="Usage: ./script.py [binary]")
+parser.add_argument('binary')
+parser.add_argument('-g', "--gef",   action='store_true')
+parser.add_argument('-p', "--pwndbg",   action='store_true')
+parser.add_argument('-n', "--noaslr", action='store_true')
+parser.add_argument('-l', "--log-level", default='info', type=str)
+args = parser.parse_args()
+
+p.log_level = args.log_level
+
+proc, elf, libc = get_server()
+assert libc is not None
+
+thd = thd_comm()
+attach_gdb('''
+    thread 2
+    b malloc
+    commands
+        finish
+        set $maddr=$rax
+    end
+    b free
+    commands
+        finish
+    end
+    c
+''')
+thd.malloc(0)
+thd.scanf(0, b"test")
+print(thd.printf(0))
+thd.free(0)
+
+thd.thd.interactive()
